@@ -18,7 +18,6 @@ import matplotlib.pyplot as plt
 from sklearn.ensemble import IsolationForest
 from sklearn.svm import OneClassSVM
 from sklearn.neighbors import LocalOutlierFactor
-from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.metrics import (roc_auc_score, roc_curve, f1_score,
                              classification_report, confusion_matrix)
 
@@ -87,29 +86,43 @@ def held_out(X, y_bin, groups):
     return results
 
 
-def loro_cv(X, y_bin, groups):
+def repeated_cv(X, y_bin, groups, n_repeats=10):
+    """Repeated recording-level splits -> mean +/- std AUC/F1 (the headline number).
+    Each repeat: hold out ~30% of NORMAL recordings + ~30% of ANOMALY recordings for
+    test, train on the remaining normal recordings. Works with few recordings, and
+    the variance across repeats shows how stable the method is."""
     print("\n" + "=" * 56)
-    print("(B) LEAVE-ONE-RECORDING-OUT CV  (honest generalisation)")
+    print(f"(B) REPEATED RECORDING-LEVEL CV  ({n_repeats} splits, honest generalisation)")
     print("=" * 56)
-    logo = LeaveOneGroupOut()
+    norm_g = np.unique(groups[y_bin == 0])
+    anom_g = np.unique(groups[y_bin == 1])
     summary = {}
+
     for name in CLASSICAL:
         aucs, f1s = [], []
-        for tr_idx, te_idx in logo.split(X, y_bin, groups):
-            tr_norm = tr_idx[y_bin[tr_idx] == 0]
-            if len(tr_norm) < 10 or len(np.unique(y_bin[te_idx])) < 2:
+        for r in range(n_repeats):
+            rng = np.random.default_rng(RANDOM_STATE + r)
+            ng, ag = norm_g.copy(), anom_g.copy()
+            rng.shuffle(ng); rng.shuffle(ag)
+            n_test_n = max(1, int(round(len(ng) * 0.3)))
+            n_test_a = max(1, int(round(len(ag) * 0.3)))
+            test_groups  = set(ng[:n_test_n]).union(ag[:n_test_a])
+            train_norm_g = set(ng[n_test_n:])
+            tr = np.isin(groups, list(train_norm_g)) & (y_bin == 0)
+            te = np.isin(groups, list(test_groups))
+            if tr.sum() < 10 or len(np.unique(y_bin[te])) < 2:
                 continue
-            model = make_model(name).fit(X[tr_norm])
-            thr = np.percentile(model.score_samples(X[tr_norm]), CONTAMINATION * 100)
-            s = model.score_samples(X[te_idx])
-            aucs.append(roc_auc_score(y_bin[te_idx], -s))
-            f1s.append(f1_score(y_bin[te_idx], np.where(s < thr, 1, 0), zero_division=0))
+            model = make_model(name).fit(X[tr])
+            thr = np.percentile(model.score_samples(X[tr]), CONTAMINATION * 100)
+            s = model.score_samples(X[te])
+            aucs.append(roc_auc_score(y_bin[te], -s))
+            f1s.append(f1_score(y_bin[te], np.where(s < thr, 1, 0), zero_division=0))
         if aucs:
             summary[name] = (np.mean(aucs), np.std(aucs), np.mean(f1s), np.std(f1s))
             print(f"  {name:24s} AUC={np.mean(aucs):.3f}+/-{np.std(aucs):.3f}  "
-                  f"F1={np.mean(f1s):.3f}+/-{np.std(f1s):.3f}  (n={len(aucs)} folds)")
+                  f"F1={np.mean(f1s):.3f}+/-{np.std(f1s):.3f}  (n={len(aucs)} splits)")
         else:
-            print(f"  {name:24s} not enough recordings for CV")
+            print(f"  {name:24s} not enough recordings")
     return summary
 
 
@@ -119,7 +132,7 @@ def main():
     y_bin = np.where(y != 0, 1, 0)
 
     held = held_out(X, y_bin, groups)
-    loro_cv(X, y_bin, groups)
+    repeated_cv(X, y_bin, groups)
 
     lof_auc, lof_f1, _ = held.get("Local Outlier Factor", (0.0, 0.0, ""))
     np.savez(RESULTS_PATH,
@@ -128,7 +141,7 @@ def main():
              holdout_f1=np.array([held[m][1] for m in held]),
              lof_holdout_auc=lof_auc, lof_holdout_f1=lof_f1)
     print(f"\nMetrics saved -> {RESULTS_PATH} (dashboard reads these)")
-    print("Report the LORO-CV mean+/-std as your headline generalisation number.")
+    print("Report the repeated-CV mean+/-std as your headline generalisation number.")
 
 
 if __name__ == "__main__":
