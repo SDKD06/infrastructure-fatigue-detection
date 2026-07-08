@@ -39,6 +39,10 @@ def main():
     cm = confusion_matrix(yte, yhat)
     print(f"TN={cm[0,0]} FP={cm[0,1]} FN={cm[1,0]} TP={cm[1,1]}")
     print(f"AUC={roc_auc_score(yte, err):.4f}  F1={f1_score(yte, yhat, zero_division=0):.4f}")
+
+    # cache per-window errors so compare_models.py can include the AE WITHOUT TensorFlow
+    np.savez("data/ae_test_scores.npz", errors=err, labels=yte, threshold=threshold)
+    print("cached AE test scores -> data/ae_test_scores.npz")
     print("\nReminder: with few normal recordings the AE likely overfits — "
           "report this honestly relative to IF/LOF.")
 
