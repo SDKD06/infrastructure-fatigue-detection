@@ -127,8 +127,7 @@ firmware/
   `micro_forest.h` (~122 KB) — a faithful port, not an approximation.
 - `esp32_validation.ino` verifies on-chip scores match Python `score_samples`
   to ~1e-5 and measures inference latency.
-
-_Latency and memory-footprint measurements will be added after flashing._
+  _Latency and memory-footprint measurements will be added after flashing._
 
 ---
 
