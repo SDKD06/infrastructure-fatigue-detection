@@ -1,0 +1,47 @@
+/*
+ * esp32_validation.ino  -  proves the on-chip Isolation Forest is FAITHFUL.
+ * Reference vectors are data/features.npz[:5] from the ESP32-trained model.
+ *
+ * Expected Python scores (match ~1e-5):
+ *   -0.35556826 -0.36002148 -0.37746201 -0.35241553 -0.35829284
+ * (all five are NORMAL windows: score > threshold -0.514346 => "normal")
+ *
+ * UPLOAD: Board=ESP32 Dev Module, Port=COM5, Upload. Serial Monitor @115200.
+ */
+
+#include "micro_forest.h"
+
+float REF_VECTORS[5][N_FEATURES] = {
+  {0.02128666f,0.02127436f,-0.16537773f,-0.01828016f,0.12222479f,28.50000000f,59.46731304f,61.40926553f,5.08222621f,2.93701171f,0.02110049f,0.02109732f,-0.25528897f,0.07754697f,0.11578574f,60.00000000f,58.37606160f,62.10585107f,5.08638359f,2.88287791f,0.03084803f,0.03083468f,-0.00686881f,0.08445555f,0.18598600f,45.00000000f,124.84932339f,62.96543897f,5.14095842f,3.10335524f},
+  {0.02114913f,0.02108573f,0.17389881f,0.13304305f,0.12311181f,29.00000000f,58.98607930f,60.18576450f,5.03290664f,2.96622497f,0.02005058f,0.02000122f,0.04917948f,0.04989007f,0.11107720f,29.00000000f,52.96607826f,62.12156420f,5.08522929f,3.01136827f,0.03144493f,0.03136040f,-0.16446949f,0.07640178f,0.17624103f,50.00000000f,130.30890137f,62.30855948f,5.04969473f,3.04444572f},
+  {0.02128797f,0.02128785f,0.14734337f,0.20731020f,0.12311181f,29.00000000f,59.56556667f,60.79247154f,5.08910119f,2.94687868f,0.02081081f,0.02078385f,-0.08871882f,-0.08412744f,0.12115186f,35.50000000f,56.91293032f,62.09354459f,5.07777410f,2.92022177f,0.03257850f,0.03253140f,-0.32248347f,0.02517906f,0.17733247f,88.50000000f,140.01215739f,65.29918445f,5.14883259f,2.75023729f},
+  {0.02151805f,0.02146948f,-0.01598486f,0.10086906f,0.13012623f,13.00000000f,61.23454477f,63.04069087f,5.13836236f,3.23826535f,0.02153982f,0.02152799f,-0.01961797f,-0.03782000f,0.13144971f,35.50000000f,60.90873322f,63.02251629f,4.97727600f,3.12087469f,0.03270182f,0.03266653f,-0.03076731f,0.03685526f,0.21248049f,16.50000000f,140.62184588f,63.68099660f,5.11967931f,3.26736000f},
+  {0.02085689f,0.02084625f,-0.03565356f,-0.06236513f,0.13012623f,12.50000000f,57.21397466f,62.13831607f,5.12369524f,3.34091877f,0.02092553f,0.02091167f,0.13870767f,0.10483887f,0.13914670f,35.50000000f,57.51093989f,61.23781901f,4.96181070f,3.58031852f,0.03131177f,0.03127109f,-0.06180387f,-0.04042190f,0.21248049f,67.50000000f,128.91163783f,61.14386643f,5.10963923f,3.41241050f},
+};
+
+void setup() {
+  Serial.begin(115200);
+  delay(1200);
+  Serial.println("\n=== ESP32 Isolation-Forest VALIDATION (ESP32-trained model) ===");
+  Serial.println("py: -0.35556826 -0.36002148 -0.37746201 -0.35241553 -0.35829284\n");
+
+  for (int i = 0; i < 5; i++) {
+    float score = 0.0f;
+    unsigned long t0 = micros();
+    bool anomaly = predict_anomaly(REF_VECTORS[i], &score);
+    unsigned long dt = micros() - t0;
+    Serial.print("vector "); Serial.print(i);
+    Serial.print("  score = "); Serial.print(score, 6);
+    Serial.print("  ["); Serial.print(anomaly ? "ANOMALY" : "normal"); Serial.print("]");
+    Serial.print("  latency = "); Serial.print(dt); Serial.println(" us");
+  }
+
+  const int N = 200;
+  float s; unsigned long t0 = micros();
+  for (int k = 0; k < N; k++) predict_anomaly(REF_VECTORS[0], &s);
+  unsigned long avg = (micros() - t0) / N;
+  Serial.print("\nAvg inference latency over "); Serial.print(N);
+  Serial.print(" runs: "); Serial.print(avg); Serial.println(" us");
+}
+
+void loop() {}

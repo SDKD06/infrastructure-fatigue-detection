@@ -113,9 +113,19 @@ src/
   fake_esp32.py           # hardware-free ESP32 simulator
   dashboard.py            # Streamlit monitor
 firmware/
-  firmware.ino            # ESP32 edge inference (MPU6050 + on-device features)
-  esp32_validation.ino    # score-match + latency harness
-  micro_forest.h          # auto-generated Isolation Forest (do not edit)
+  firmware.ino                        # main ESP32 edge inference (MPU6050 + on-device features)
+  micro_forest.h                      # auto-generated Isolation Forest (do not edit)
+  esp32_datalogger/                   # logger sketch: captures accelerometer CSV over serial
+    esp32_datalogger/esp32_datalogger.ino
+  esp32_validation/                   # score-match + latency harness (verifies <1e-6 vs Python)
+    esp32_validation.ino
+    micro_forest.h
+  firmware_benchmark/                 # timing / latency measurement sketch
+    firmware_benchmark.ino
+    micro_forest.h
+  firmware_debug/                     # debug / troubleshooting sketch
+    firmware_debug.ino
+    micro_forest.h
 ```
 
 ---
